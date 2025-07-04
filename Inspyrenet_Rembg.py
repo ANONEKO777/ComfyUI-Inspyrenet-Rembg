@@ -16,7 +16,7 @@ def pil2tensor(image):
 class InspyrenetRembg:
     def __init__(self):
         pass
-    
+
     @classmethod
     def INPUT_TYPES(s):
         return {
@@ -35,19 +35,34 @@ class InspyrenetRembg:
             remover = Remover()
         else:
             remover = Remover(jit=True)
-        img_list = []
+
+        processed_images = []
+        processed_masks = []
+
         for img in tqdm(image, "Inspyrenet Rembg"):
-            mid = remover.process(tensor2pil(img), type='rgba')
-            out =  pil2tensor(mid)
-            img_list.append(out)
-        img_stack = torch.cat(img_list, dim=0)
-        mask = img_stack[:, :, :, 3]
-        return (img_stack, mask)
-        
+            orig_image = tensor2pil(img)
+
+            rgba_result = remover.process(orig_image, type='rgba')
+            mask_pil = rgba_result.split()[3]
+            # Create a new transparent background image and paste the original image with the mask
+            # I found that this step is necessary when exporting videos using VideoHelper, otherwise the exported video will still have a background
+            new_im = Image.new("RGBA", orig_image.size, (0,0,0,0))
+            new_im.paste(orig_image, mask=mask_pil)
+            new_im_tensor = pil2tensor(new_im)
+            mask_tensor = pil2tensor(mask_pil)
+
+            processed_images.append(new_im_tensor)
+            processed_masks.append(mask_tensor)
+
+        img_stack = torch.cat(processed_images, dim=0)
+        mask_stack = torch.cat(processed_masks, dim=0)
+
+        return (img_stack, mask_stack)
+
 class InspyrenetRembgAdvanced:
     def __init__(self):
         pass
-    
+
     @classmethod
     def INPUT_TYPES(s):
         return {
@@ -67,11 +82,26 @@ class InspyrenetRembgAdvanced:
             remover = Remover()
         else:
             remover = Remover(jit=True)
-        img_list = []
+
+        processed_images = []
+        processed_masks = []
+
         for img in tqdm(image, "Inspyrenet Rembg"):
-            mid = remover.process(tensor2pil(img), type='rgba', threshold=threshold)
-            out =  pil2tensor(mid)
-            img_list.append(out)
-        img_stack = torch.cat(img_list, dim=0)
-        mask = img_stack[:, :, :, 3]
-        return (img_stack, mask)
+            orig_image = tensor2pil(img)
+
+            rgba_result = remover.process(orig_image, type='rgba', threshold=threshold)
+            mask_pil = rgba_result.split()[3]
+            # Create a new transparent background image and paste the original image with the mask
+            # I found that this step is necessary when exporting videos using VideoHelper, otherwise the exported video will still have a background
+            new_im = Image.new("RGBA", orig_image.size, (0,0,0,0))
+            new_im.paste(orig_image, mask=mask_pil)
+            new_im_tensor = pil2tensor(new_im)
+            mask_tensor = pil2tensor(mask_pil)
+
+            processed_images.append(new_im_tensor)
+            processed_masks.append(mask_tensor)
+
+        img_stack = torch.cat(processed_images, dim=0)
+        mask_stack = torch.cat(processed_masks, dim=0)
+
+        return (img_stack, mask_stack)
